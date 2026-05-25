@@ -5,7 +5,8 @@ function seededRandom(seed) {
 
 function generateStableKey(seed) {
 
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const chars =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
     let key = "ADDY-";
 
@@ -27,7 +28,9 @@ function generateStableKey(seed) {
 
 export default function handler(req, res) {
 
-    const period = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
+    // Rotates every 12 hours
+    const period =
+        Math.floor(Date.now() / (1000 * 60 * 60 * 12));
 
     const stableKey = generateStableKey(period);
 
@@ -35,55 +38,91 @@ export default function handler(req, res) {
 
     res.status(200).send(`
     <!DOCTYPE html>
+
     <html>
+
     <head>
+
         <title>ADDY HUB KEY</title>
+
+        <meta name="viewport"
+        content="width=device-width, initial-scale=1.0"/>
 
         <style>
 
             body{
-                background:#0d1117;
-                color:white;
-                font-family:sans-serif;
+                margin:0;
+                height:100vh;
+
                 display:flex;
                 justify-content:center;
                 align-items:center;
-                height:100vh;
-                margin:0;
+
+                background:#0d1117;
+
+                font-family:sans-serif;
+                color:white;
             }
 
             .box{
-                background:#161b22;
-                padding:40px;
-                border-radius:16px;
-                text-align:center;
+
                 width:320px;
-                box-shadow:0 0 20px rgba(0,0,0,0.4);
+
+                background:#161b22;
+
+                border-radius:18px;
+
+                padding:35px;
+
+                text-align:center;
+
+                box-shadow:
+                0 0 25px rgba(0,0,0,0.4);
             }
 
             h1{
                 margin-top:0;
                 color:#58a6ff;
+                font-size:32px;
             }
 
             .key{
+
                 background:#0d1117;
-                padding:15px;
-                border-radius:10px;
-                font-size:20px;
-                margin:20px 0;
-                word-break:break-all;
+
+                padding:16px;
+
+                border-radius:12px;
+
+                margin:25px 0;
+
+                font-size:22px;
+
+                word-break:break-word;
+
+                border:
+                1px solid rgba(255,255,255,0.08);
             }
 
             button{
-                background:#238636;
-                color:white;
-                border:none;
-                padding:12px 20px;
-                border-radius:10px;
-                font-size:16px;
-                cursor:pointer;
+
                 width:100%;
+
+                border:none;
+
+                border-radius:12px;
+
+                padding:14px;
+
+                background:#238636;
+
+                color:white;
+
+                font-size:17px;
+
+                cursor:pointer;
+
+                transition:0.2s;
             }
 
             button:hover{
@@ -91,12 +130,16 @@ export default function handler(req, res) {
             }
 
             .small{
-                margin-top:15px;
+
+                margin-top:18px;
+
                 color:#8b949e;
+
                 font-size:14px;
             }
 
         </style>
+
     </head>
 
     <body>
@@ -109,12 +152,15 @@ export default function handler(req, res) {
                 ${stableKey}
             </div>
 
-            <button onclick="copyKey()">
+            <button onclick="copyKey()"
+            id="copyButton">
+
                 COPY KEY
+
             </button>
 
             <div class="small">
-                Key expires in 12 hours
+                Key rotates every 12 hours
             </div>
 
         </div>
@@ -128,12 +174,22 @@ export default function handler(req, res) {
 
                 navigator.clipboard.writeText(key);
 
-                alert("Key copied!");
+                const button =
+                    document.getElementById("copyButton");
+
+                button.innerText = "COPIED ✓";
+
+                setTimeout(() => {
+
+                    button.innerText = "COPY KEY";
+
+                }, 1200);
             }
 
         </script>
 
     </body>
+
     </html>
     `);
 }
