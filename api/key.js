@@ -1,5 +1,7 @@
 function seededRandom(seed) {
+
     let x = Math.sin(seed) * 10000;
+
     return x - Math.floor(x);
 }
 
@@ -28,11 +30,41 @@ function generateStableKey(seed) {
 
 export default function handler(req, res) {
 
-    // Rotates every 12 hours
+    //------------------------------------------------
+    -- CURRENT KEY
+    //------------------------------------------------
+
     const period =
         Math.floor(Date.now() / (1000 * 60 * 60 * 12));
 
     const stableKey = generateStableKey(period);
+
+    //------------------------------------------------
+    -- ROBLOX AUTH MODE
+    //------------------------------------------------
+
+    const userKey = req.query.key;
+
+    if (userKey) {
+
+        res.setHeader(
+            "Content-Type",
+            "text/plain"
+        );
+
+        if (userKey === stableKey) {
+
+            return res.status(200).send("VALID");
+
+        } else {
+
+            return res.status(401).send("INVALID");
+        }
+    }
+
+    //------------------------------------------------
+    -- WEBSITE MODE
+    //------------------------------------------------
 
     res.setHeader("Content-Type", "text/html");
 
