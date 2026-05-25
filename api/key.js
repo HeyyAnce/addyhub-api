@@ -30,19 +30,13 @@ function generateStableKey(seed) {
 
 export default function handler(req, res) {
 
-    //------------------------------------------------
-    -- CURRENT KEY
-    //------------------------------------------------
-
+    // Current rotating key
     const period =
         Math.floor(Date.now() / (1000 * 60 * 60 * 12));
 
     const stableKey = generateStableKey(period);
 
-    //------------------------------------------------
-    -- ROBLOX AUTH MODE
-    //------------------------------------------------
-
+    // Roblox authentication mode
     const userKey = req.query.key;
 
     if (userKey) {
@@ -54,19 +48,23 @@ export default function handler(req, res) {
 
         if (userKey === stableKey) {
 
-            return res.status(200).send("VALID");
+            return res
+                .status(200)
+                .send("VALID");
 
         } else {
 
-            return res.status(401).send("INVALID");
+            return res
+                .status(401)
+                .send("INVALID");
         }
     }
 
-    //------------------------------------------------
-    -- WEBSITE MODE
-    //------------------------------------------------
-
-    res.setHeader("Content-Type", "text/html");
+    // Website mode
+    res.setHeader(
+        "Content-Type",
+        "text/html"
+    );
 
     res.status(200).send(`
     <!DOCTYPE html>
