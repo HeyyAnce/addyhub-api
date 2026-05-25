@@ -1,34 +1,39 @@
-export default function handler(req, res) {
+function seededRandom(seed) {
+    let x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+}
+
+function generateStableKey(seed) {
 
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-    function generateKey(length) {
-        let result = "";
+    let key = "ADDY-";
 
-        for (let i = 0; i < length; i++) {
-            result += chars.charAt(
-                Math.floor(Math.random() * chars.length)
-            );
+    for (let i = 0; i < 12; i++) {
+
+        const randomIndex = Math.floor(
+            seededRandom(seed + i) * chars.length
+        );
+
+        key += chars[randomIndex];
+
+        if (i === 3 || i === 7) {
+            key += "-";
         }
-
-        return result;
     }
 
-    // Generates same key every 12 hours
-    const currentPeriod = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
+    return key;
+}
 
-    // Simple deterministic random
-    const seeded = currentPeriod.toString();
+export default function handler(req, res) {
 
-    let finalKey = "ADDY-";
+    // 12 hour rotation
+    const period = Math.floor(Date.now() / (1000 * 60 * 60 * 12));
 
-    for (let i = 0; i < seeded.length; i++) {
-        finalKey += generateKey(1);
-    }
-
-    finalKey += "-" + generateKey(6);
+    const stableKey = generateStableKey(period);
 
     res.status(200).json({
-        key: finalKey
+        key: stableKey,
+        expiresInHours: 12
     });
 }
