@@ -1,225 +1,310 @@
-function seededRandom(seed) {
+import crypto from "crypto";
 
-    let x = Math.sin(seed) * 10000;
+// Temporary in-memory database
+// (resets on redeploy/server restart)
+const KEYS = new Map();
 
-    return x - Math.floor(x);
-}
+function generateKey() {
 
-function generateStableKey(seed) {
+    const raw = crypto
+        .randomBytes(8)
+        .toString("hex")
+        .toUpperCase();
 
-    const chars =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-    let key = "ADDY-";
-
-    for (let i = 0; i < 12; i++) {
-
-        const randomIndex = Math.floor(
-            seededRandom(seed + i) * chars.length
-        );
-
-        key += chars[randomIndex];
-
-        if (i === 3 || i === 7) {
-            key += "-";
-        }
-    }
-
-    return key;
-}
-
-export default function handler(req, res) {
-
-    // Current rotating key
-    const period =
-        Math.floor(Date.now() / (1000 * 60 * 60 * 12));
-
-    const stableKey = generateStableKey(period);
-
-    // Roblox authentication mode
-    const userKey = req.query.key;
-
-    if (userKey) {
-
-        res.setHeader(
-            "Content-Type",
-            "text/plain"
-        );
-
-        if (userKey === stableKey) {
-
-            return res
-                .status(200)
-                .send("VALID");
-
-        } else {
-
-            return res
-                .status(401)
-                .send("INVALID");
-        }
-    }
-
-    // Website mode
-    res.setHeader(
-        "Content-Type",
-        "text/html"
+    return (
+        "ADDY-" +
+        raw.match(/.{1,4}/g).join("-")
     );
+}
 
-    res.status(200).send(`
-    <!DOCTYPE html>
+function cleanupExpiredKeys() {
 
-    <html>
+    const now = Date.now();
 
-    <head>
+    for (const [key,data] of KEYS.entries()) {
 
-        <title>ADDY HUB KEY</title>
+        if (now > data.expires) {
+            KEYS.delete(key);
+        }
+    }
+}
 
-        <meta name="viewport"
-        content="width=device-width, initial-scale=1.0"/>
+export default async function handler(req,res) {
 
-        <style>
+    cleanupExpiredKeys();
 
-            body{
-                margin:0;
-                height:100vh;
+    // =========================
+    // WEBSITE MODE
+    // =========================
+    if (req.method === "GET") {
 
-                display:flex;
-                justify-content:center;
-                align-items:center;
+        const key = generateKey();
 
-                background:#0d1117;
+        const expires = Date.now() + (
+            12 * 60 * 60 * 1000
+        );
 
-                font-family:sans-serif;
-                color:white;
+        KEYS.set(key,{
+            used:false,
+            hwid:null,
+            expires
+        });
+
+        return res.status(200).send(`
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>ADDY HUB KEY</title>
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0"/>
+
+<style>
+
+body{
+
+    margin:0;
+    height:100vh;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:#0d1117;
+
+    font-family:sans-serif;
+    color:white;
+}
+
+.box{
+
+    width:340px;
+
+    background:#161b22;
+
+    border-radius:18px;
+
+    padding:35px;
+
+    text-align:center;
+
+    box-shadow:
+    0 0 25px rgba(0,0,0,0.4);
+}
+
+h1{
+
+    margin-top:0;
+
+    color:#ff4da6;
+
+    font-size:32px;
+}
+
+.key{
+
+    background:#0d1117;
+
+    padding:16px;
+
+    border-radius:12px;
+
+    margin:25px 0;
+
+    font-size:20px;
+
+    word-break:break-word;
+
+    border:
+    1px solid rgba(255,255,255,0.08);
+}
+
+button{
+
+    width:100%;
+
+    border:none;
+
+    border-radius:12px;
+
+    padding:14px;
+
+    background:#ff4da6;
+
+    color:white;
+
+    font-size:17px;
+
+    cursor:pointer;
+
+    transition:0.2s;
+}
+
+button:hover{
+
+    background:#ff66b3;
+}
+
+.small{
+
+    margin-top:18px;
+
+    color:#8b949e;
+
+    font-size:14px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="box">
+
+<h1>ADDY HUB</h1>
+
+<div class="key" id="key">
+${key}
+</div>
+
+<button onclick="copyKey()"
+id="copyButton">
+
+COPY KEY
+
+</button>
+
+<div class="small">
+
+Key valid for 12 hours.<br>
+Can only be used on one device.
+
+</div>
+
+</div>
+
+<script>
+
+function copyKey(){
+
+    const key=
+        document.getElementById("key").innerText;
+
+    navigator.clipboard.writeText(key);
+
+    const button=
+        document.getElementById("copyButton");
+
+    button.innerText="COPIED ✓";
+
+    setTimeout(()=>{
+
+        button.innerText="COPY KEY";
+
+    },1200);
+}
+
+</script>
+
+</body>
+
+</html>
+        `);
+    }
+
+    // =========================
+    // AUTH MODE
+    // =========================
+    if (req.method === "POST") {
+
+        try {
+
+            const {
+                key,
+                hwid
+            } = req.body;
+
+            if (!key || !hwid) {
+
+                return res.status(400).json({
+                    success:false,
+                    message:"MISSING_FIELDS"
+                });
             }
 
-            .box{
+            const data = KEYS.get(key);
 
-                width:320px;
+            // Invalid key
+            if (!data) {
 
-                background:#161b22;
-
-                border-radius:18px;
-
-                padding:35px;
-
-                text-align:center;
-
-                box-shadow:
-                0 0 25px rgba(0,0,0,0.4);
+                return res.status(401).json({
+                    success:false,
+                    message:"INVALID"
+                });
             }
 
-            h1{
-                margin-top:0;
-                color:#58a6ff;
-                font-size:32px;
+            // Expired
+            if (Date.now() > data.expires) {
+
+                KEYS.delete(key);
+
+                return res.status(401).json({
+                    success:false,
+                    message:"EXPIRED"
+                });
             }
 
-            .key{
+            // First use
+            if (!data.used) {
 
-                background:#0d1117;
+                data.used = true;
+                data.hwid = hwid;
 
-                padding:16px;
-
-                border-radius:12px;
-
-                margin:25px 0;
-
-                font-size:22px;
-
-                word-break:break-word;
-
-                border:
-                1px solid rgba(255,255,255,0.08);
+                KEYS.set(key,data);
             }
 
-            button{
+            // HWID mismatch
+            if (data.hwid !== hwid) {
 
-                width:100%;
-
-                border:none;
-
-                border-radius:12px;
-
-                padding:14px;
-
-                background:#238636;
-
-                color:white;
-
-                font-size:17px;
-
-                cursor:pointer;
-
-                transition:0.2s;
+                return res.status(401).json({
+                    success:false,
+                    message:"HWID_MISMATCH"
+                });
             }
 
-            button:hover{
-                background:#2ea043;
-            }
+            // Success
+            return res.status(200).json({
 
-            .small{
+                success:true,
 
-                margin-top:18px;
+                message:"VALID",
 
-                color:#8b949e;
+                token:crypto
+                    .randomBytes(24)
+                    .toString("hex"),
 
-                font-size:14px;
-            }
+                expires:data.expires
+            });
 
-        </style>
+        } catch (e) {
 
-    </head>
+            return res.status(500).json({
 
-    <body>
+                success:false,
 
-        <div class="box">
+                message:"SERVER_ERROR"
+            });
+        }
+    }
 
-            <h1>ADDY HUB</h1>
+    return res.status(405).json({
 
-            <div class="key" id="key">
-                ${stableKey}
-            </div>
+        success:false,
 
-            <button onclick="copyKey()"
-            id="copyButton">
-
-                COPY KEY
-
-            </button>
-
-            <div class="small">
-                Key rotates every 12 hours
-            </div>
-
-        </div>
-
-        <script>
-
-            function copyKey(){
-
-                const key =
-                    document.getElementById("key").innerText;
-
-                navigator.clipboard.writeText(key);
-
-                const button =
-                    document.getElementById("copyButton");
-
-                button.innerText = "COPIED ✓";
-
-                setTimeout(() => {
-
-                    button.innerText = "COPY KEY";
-
-                }, 1200);
-            }
-
-        </script>
-
-    </body>
-
-    </html>
-    `);
+        message:"METHOD_NOT_ALLOWED"
+    });
 }
