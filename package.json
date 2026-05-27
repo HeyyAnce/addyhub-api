@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/HeyyAnce/addyhub-api/issues"
   },
-  "homepage": "https://github.com/HeyyAnce/addyhub-api#readme"
+  "homepage": "https://github.com/HeyyAnce/addyhub-api#readme",
+  "dependencies": {
+    "@upstash/redis": "^1.38.0"
+  }
 }
