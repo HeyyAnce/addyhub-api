@@ -1,8 +1,7 @@
 import crypto from "crypto";
+import { Redis } from "@upstash/redis";
 
-// Temporary in-memory database
-// (resets on redeploy/server restart)
-const KEYS = new Map();
+const redis = Redis.fromEnv();
 
 function generateKey() {
 
@@ -17,21 +16,7 @@ function generateKey() {
     );
 }
 
-function cleanupExpiredKeys() {
-
-    const now = Date.now();
-
-    for (const [key,data] of KEYS.entries()) {
-
-        if (now > data.expires) {
-            KEYS.delete(key);
-        }
-    }
-}
-
 export default async function handler(req,res) {
-
-    cleanupExpiredKeys();
 
     // =========================
     // WEBSITE MODE
@@ -44,13 +29,21 @@ export default async function handler(req,res) {
             12 * 60 * 60 * 1000
         );
 
-        KEYS.set(key,{
-            used:false,
-            hwid:null,
-            expires
-        });
+        await redis.set(
+            key,
+            {
+                used:false,
+                hwid:null,
+                username:null,
+                expires
+            },
+            {
+                ex:43200
+            }
+        );
 
         return res.status(200).send(`
+
 <!DOCTYPE html>
 
 <html>
@@ -213,6 +206,7 @@ function copyKey(){
 </body>
 
 </html>
+
         `);
     }
 
@@ -225,7 +219,8 @@ function copyKey(){
 
             const {
                 key,
-                hwid
+                hwid,
+                username
             } = req.body;
 
             if (!key || !hwid) {
@@ -236,7 +231,7 @@ function copyKey(){
                 });
             }
 
-            const data = KEYS.get(key);
+            const data = await redis.get(key);
 
             // Invalid key
             if (!data) {
@@ -250,7 +245,7 @@ function copyKey(){
             // Expired
             if (Date.now() > data.expires) {
 
-                KEYS.delete(key);
+                await redis.del(key);
 
                 return res.status(401).json({
                     success:false,
@@ -263,8 +258,15 @@ function copyKey(){
 
                 data.used = true;
                 data.hwid = hwid;
+                data.username = username;
 
-                KEYS.set(key,data);
+                await redis.set(
+                    key,
+                    data,
+                    {
+                        ex:43200
+                    }
+                );
             }
 
             // HWID mismatch
@@ -291,6 +293,8 @@ function copyKey(){
             });
 
         } catch (e) {
+
+            console.log(e);
 
             return res.status(500).json({
 
